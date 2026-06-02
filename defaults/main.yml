@@ -1,0 +1,10 @@
+---
+# Textfile collector для node_exporter, парсит OpenVPN status files и пишет
+# .prom файл в textfile_collector dir node_exporter'а. Используется на хостах
+# где НЕТ local Prometheus (VMs, group `monitoring_prometheus_vms`).
+
+prometheus_textfile_openvpn_script_dest: '/usr/local/bin/openvpn_textfile_collect.py'
+prometheus_textfile_openvpn_textfile_dir: '/var/lib/prometheus-node-exporter/textfile_collector'
+prometheus_textfile_openvpn_status_glob: '/run/openvpn-server/*.status'
+prometheus_textfile_openvpn_output_path: "{{ prometheus_textfile_openvpn_textfile_dir }}/openvpn.prom"
+prometheus_textfile_openvpn_interval_sec: 60

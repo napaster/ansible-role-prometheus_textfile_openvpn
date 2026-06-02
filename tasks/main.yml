@@ -1,0 +1,65 @@
+---
+- name: 'prometheus_textfile_openvpn | Ensure textfile dir exists'
+  ansible.builtin.file:
+    path: "{{ prometheus_textfile_openvpn_textfile_dir }}"
+    state: directory
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+
+- name: 'prometheus_textfile_openvpn | Install collector script'
+  ansible.builtin.copy:
+    src: 'openvpn_textfile_collect.py'
+    dest: "{{ prometheus_textfile_openvpn_script_dest }}"
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+
+- name: 'prometheus_textfile_openvpn | systemd service unit'
+  ansible.builtin.copy:
+    dest: '/etc/systemd/system/openvpn-textfile-collect.service'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=OpenVPN status -> Prometheus textfile collector
+      After=network.target
+
+      [Service]
+      Type=oneshot
+      ExecStart={{ prometheus_textfile_openvpn_script_dest }} {{ prometheus_textfile_openvpn_status_glob }} {{ prometheus_textfile_openvpn_output_path }}
+      User=root
+  notify: 'Reload systemd'
+
+- name: 'prometheus_textfile_openvpn | systemd timer unit'
+  ansible.builtin.copy:
+    dest: '/etc/systemd/system/openvpn-textfile-collect.timer'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Periodic refresh of OpenVPN textfile metrics
+
+      [Timer]
+      OnBootSec=30s
+      OnUnitActiveSec={{ prometheus_textfile_openvpn_interval_sec }}s
+      AccuracySec=5s
+      Unit=openvpn-textfile-collect.service
+
+      [Install]
+      WantedBy=timers.target
+  notify: 'Reload systemd'
+
+- name: 'prometheus_textfile_openvpn | Run once to populate first metrics'
+  ansible.builtin.command:
+    cmd: "{{ prometheus_textfile_openvpn_script_dest }} {{ prometheus_textfile_openvpn_status_glob }} {{ prometheus_textfile_openvpn_output_path }}"
+  changed_when: false
+
+- name: 'prometheus_textfile_openvpn | Enable + start timer'
+  ansible.builtin.systemd:
+    name: 'openvpn-textfile-collect.timer'
+    enabled: true
+    state: started
+    daemon_reload: true
